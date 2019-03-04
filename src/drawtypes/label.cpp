@@ -218,13 +218,21 @@ namespace drawtypes {
     }
 
     size_t maxlen = conf.get(section, name + "-maxlen", 0_z);
-    bool ellipsis = conf.get(section, name + "-ellipsis", true);
+    bool has_ellipsis = conf.has(section, name + "-ellipsis");
+    bool ellipsis = conf.deprecated_type_changed(section, name + "-ellipsis", name + "-ellipsis-string", true);
+    string ellipsis_str = conf.get(section, name + "-ellipsis-string", "..."s);
 
-    if(ellipsis && maxlen > 0 && maxlen < 3) {
+    if (has_ellipsis && ellipsis && ellipsis_str.empty()) {
+      throw application_error(
+          sstream() << "Label " << section << "." << name << " has ellipsis enabled but ellipsis-string is empty");
+    }
+
+    if(ellipsis && maxlen > 0 && maxlen < string_util::char_len(ellipsis_str)) {
       throw application_error(sstream()
           << "Label " << section << "." << name
           << " has maxlen " << maxlen
-          << ", which is smaller than length of ellipsis (3)");
+          << ", which is smaller than length of ellipsis ("
+          << string_util::char_len(ellipsis_str) << ')');
     }
 
     // clang-format off
@@ -237,7 +245,7 @@ namespace drawtypes {
         padding,
         margin,
         maxlen,
-        ellipsis,
+        ellipsis_str,
         move(tokens));
     // clang-format on
   }
@@ -262,6 +270,6 @@ namespace drawtypes {
   icon_t load_optional_icon(const config& conf, string section, string name, string def) {
     return load_icon(conf, move(section), move(name), false, move(def));
   }
-}
+}  // namespace drawtypes
 
 POLYBAR_NS_END
