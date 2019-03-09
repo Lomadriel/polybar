@@ -118,11 +118,13 @@ namespace modules {
         {TAG_BAR_CAPACITY, TAG_RAMP_CAPACITY, TAG_ANIMATION_DISCHARGING, TAG_LABEL_DISCHARGING});
     m_formatter->add(FORMAT_FULL, TAG_LABEL_FULL, {TAG_BAR_CAPACITY, TAG_RAMP_CAPACITY, TAG_LABEL_FULL});
 
+    std::vector<animation_t> animations(2);
+
     if (m_formatter->has(TAG_ANIMATION_CHARGING, FORMAT_CHARGING)) {
-      m_animation_charging = load_animation(m_conf, name(), TAG_ANIMATION_CHARGING);
+      animations[CHARGING_ANIMATION] = load_animation(m_conf, name(), TAG_ANIMATION_CHARGING);
     }
     if (m_formatter->has(TAG_ANIMATION_DISCHARGING, FORMAT_DISCHARGING)) {
-      m_animation_discharging = load_animation(m_conf, name(), TAG_ANIMATION_DISCHARGING);
+      animations[DISCHARGING_ANIMATION] = load_animation(m_conf, name(), TAG_ANIMATION_DISCHARGING);
     }
     if (m_formatter->has(TAG_BAR_CAPACITY)) {
       m_bar_capacity = load_progressbar(m_bar, m_conf, name(), TAG_BAR_CAPACITY);
@@ -152,6 +154,13 @@ namespace modules {
       }
       m_timeformat = m_conf.get(name(), "time-format", "%H:%M:%S"s);
     }
+
+    const auto is_null = [](const animation_t& ptr) { return ptr == nullptr; };
+    // Launch the thread only if there is an animation
+    if (!std::all_of(animations.cbegin(), animations.cend(), is_null)) {
+      // Default sleep is 1000ms
+      m_animation_manager = make_multi_animation_manager(1000, move(animations));
+    }
   }
 
   /**
@@ -160,15 +169,19 @@ namespace modules {
    */
   void battery_module::start() {
     this->inotify_module::start();
-    m_subthread = thread(&battery_module::subthread, this);
-  }
 
-  /**
-   * Release wake lock when stopping the module
-   */
-  void battery_module::teardown() {
-    if (m_subthread.joinable()) {
-      m_subthread.join();
+    if (m_animation_manager) {
+      m_animation_manager->launch(
+          [this](const auto& animations) -> animation_t {
+            if (m_state == battery_module::state::CHARGING) {
+              return animations[CHARGING_ANIMATION];
+            } else if (m_state == battery_module::state::DISCHARGING) {
+              return animations[DISCHARGING_ANIMATION];
+            }
+
+            return nullptr;
+          },
+          [this]() { broadcast(); });
     }
   }
 
@@ -258,9 +271,9 @@ namespace modules {
    */
   bool battery_module::build(builder* builder, const string& tag) const {
     if (tag == TAG_ANIMATION_CHARGING) {
-      builder->node(m_animation_charging->get());
+      builder->node(m_animation_manager->get_animations()[CHARGING_ANIMATION]->get());
     } else if (tag == TAG_ANIMATION_DISCHARGING) {
-      builder->node(m_animation_discharging->get());
+      builder->node(m_animation_manager->get_animations()[DISCHARGING_ANIMATION]->get());
     } else if (tag == TAG_BAR_CAPACITY) {
       builder->node(m_bar_capacity->output(m_percentage));
     } else if (tag == TAG_RAMP_CAPACITY) {
@@ -329,36 +342,6 @@ namespace modules {
     char buffer[256]{0};
     strftime(buffer, sizeof(buffer), m_timeformat.c_str(), &t);
     return {buffer};
-  }
-
-  /**
-   * Subthread runner that emits update events to refresh <animation-charging>
-   * or <animation-discharging> in case they are used. Note, that it is ok to
-   * use a single thread, because the two animations are never shown at the
-   * same time.
-   */
-  void battery_module::subthread() {
-    m_log.trace("%s: Start of subthread", name());
-
-    while (running()) {
-      auto now = chrono::system_clock::now();
-      auto framerate = 1000U;  // milliseconds
-      if (m_state == battery_module::state::CHARGING) {
-        m_animation_charging->increment();
-        broadcast();
-        framerate = m_animation_charging->framerate();
-      } else if (m_state == battery_module::state::DISCHARGING) {
-        m_animation_discharging->increment();
-        broadcast();
-        framerate = m_animation_discharging->framerate();
-      }
-
-      // We don't count the the first part of the loop to be as close as possible to the framerate.
-      now += chrono::milliseconds(framerate);
-      this_thread::sleep_until(now);
-    }
-
-    m_log.trace("%s: End of subthread", name());
   }
 }  // namespace modules
 

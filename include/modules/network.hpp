@@ -37,7 +37,7 @@ namespace modules {
 
     ramp_t m_ramp_signal;
     ramp_t m_ramp_quality;
-    animation_t m_animation_packetloss;
+    animation_manager_t m_animation_manager;
     map<connection_state, label_t> m_label;
 
     atomic<bool> m_connected{false};

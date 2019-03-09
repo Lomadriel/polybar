@@ -48,7 +48,6 @@ namespace modules {
     explicit battery_module(const bar_settings&, string);
 
     void start();
-    void teardown();
     void idle();
     bool on_event(inotify_event* event);
     string get_format() const;
@@ -59,7 +58,6 @@ namespace modules {
     int current_percentage(state state);
     string current_time();
     string current_consumption();
-    void subthread();
 
    private:
     static constexpr const char* FORMAT_CHARGING{"format-charging"};
@@ -74,7 +72,10 @@ namespace modules {
     static constexpr const char* TAG_LABEL_DISCHARGING{"<label-discharging>"};
     static constexpr const char* TAG_LABEL_FULL{"<label-full>"};
 
-    static const size_t SKIP_N_UNCHANGED{3_z};
+    static constexpr size_t CHARGING_ANIMATION{0_z};
+    static constexpr size_t DISCHARGING_ANIMATION{1_z};
+
+    static constexpr size_t SKIP_N_UNCHANGED{3_z};
 
     unique_ptr<state_reader> m_state_reader;
     unique_ptr<capacity_reader> m_capacity_reader;
@@ -84,8 +85,9 @@ namespace modules {
     label_t m_label_charging;
     label_t m_label_discharging;
     label_t m_label_full;
-    animation_t m_animation_charging;
-    animation_t m_animation_discharging;
+
+    multi_animation_manager_t m_animation_manager;
+
     progressbar_t m_bar_capacity;
     ramp_t m_ramp_capacity;
 
@@ -103,7 +105,6 @@ namespace modules {
     size_t m_unchanged{SKIP_N_UNCHANGED};
     chrono::duration<double> m_interval{};
     chrono::system_clock::time_point m_lastpoll;
-    thread m_subthread;
   };
 }
 

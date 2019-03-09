@@ -40,7 +40,7 @@ using std::to_string;
 
 using namespace std::string_literals;
 
-constexpr size_t operator"" _z(unsigned long long n) {
+constexpr size_t operator"" _z(unsigned long long n) noexcept {
   return n;
 }
 

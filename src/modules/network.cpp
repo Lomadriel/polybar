@@ -47,6 +47,7 @@ namespace modules {
       m_label[connection_state::DISCONNECTED]->replace_token("%ifname%", m_interface);
     }
 
+    animation_t animation_packetloss;
     // Create elements for format-packetloss if we are told to test connectivity
     if (m_ping_nth_update > 0) {
       m_formatter->add(FORMAT_PACKETLOSS, TAG_LABEL_CONNECTED,
@@ -56,7 +57,7 @@ namespace modules {
         m_label[connection_state::PACKETLOSS] = load_optional_label(m_conf, name(), TAG_LABEL_PACKETLOSS, "");
       }
       if (m_formatter->has(TAG_ANIMATION_PACKETLOSS, FORMAT_PACKETLOSS)) {
-        m_animation_packetloss = load_animation(m_conf, name(), TAG_ANIMATION_PACKETLOSS);
+        animation_packetloss = load_animation(m_conf, name(), TAG_ANIMATION_PACKETLOSS);
       }
     }
 
@@ -70,8 +71,13 @@ namespace modules {
     };
 
     // We only need to start the subthread if the packetloss animation is used
-    if (m_animation_packetloss) {
-      m_threads.emplace_back(thread(&network_module::subthread_routine, this));
+    if (animation_packetloss) {
+      m_animation_manager = make_animation_manager(animation_packetloss->framerate(), move(animation_packetloss));
+      m_animation_manager->launch([this]() {
+          if (m_connected && m_packetloss) {
+            broadcast();
+          }
+      });
     }
   }
 
@@ -161,7 +167,7 @@ namespace modules {
     } else if (tag == TAG_LABEL_PACKETLOSS) {
       builder->node(m_label.at(connection_state::PACKETLOSS));
     } else if (tag == TAG_ANIMATION_PACKETLOSS) {
-      builder->node(m_animation_packetloss->get());
+      builder->node(m_animation_manager->get_animation()->get());
     } else if (tag == TAG_RAMP_SIGNAL) {
       builder->node(m_ramp_signal->get_by_percentage(m_signal));
     } else if (tag == TAG_RAMP_QUALITY) {
@@ -170,23 +176,6 @@ namespace modules {
       return false;
     }
     return true;
-  }
-
-  void network_module::subthread_routine() {
-    const chrono::milliseconds framerate{m_animation_packetloss->framerate()};
-
-    while (running()) {
-      auto now = chrono::system_clock::now();
-      if (m_connected && m_packetloss) {
-        m_animation_packetloss->increment();
-        broadcast();
-      }
-
-      now += framerate;
-      this_thread::sleep_until(now);
-    }
-
-    m_log.trace("%s: Reached end of network subthread", name());
   }
 }
 
