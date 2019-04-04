@@ -115,6 +115,7 @@ namespace modules {
         auto command = command_util::make_command(hook->command);
         command->exec(false);
         command->tail([this](string line) { m_output = line; });
+        m_log.info("%s: Hook %s has stopped, command (%s).", name(), hook->payload, hook->command);
       } catch (const exception& err) {
         m_log.err("%s: Failed to execute hook command (err: %s)", err.what());
         m_output.clear();
