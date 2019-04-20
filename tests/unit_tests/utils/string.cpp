@@ -57,6 +57,19 @@ TEST(String, trim) {
   EXPECT_EQ("test", string_util::trim("xxtestxx", 'x'));
 }
 
+TEST(String, truncate) {
+  {
+    // Trivial cases
+    EXPECT_EQ(string_util::utf8_truncate("âbĉdêf", 0), "");
+    EXPECT_EQ(string_util::utf8_truncate("", 30), "");
+
+    EXPECT_EQ(string_util::utf8_truncate("polybar2", 30), "polybar2");  // Should not erase
+    EXPECT_EQ(string_util::utf8_truncate("polybar2", 7), "polybar");
+    EXPECT_EQ(string_util::utf8_truncate("âbĉdêf", 1), "â");
+    EXPECT_EQ(string_util::utf8_truncate("âbĉdêf", 2), "âb");
+  }
+}
+
 TEST(String, join) {
   EXPECT_EQ("A, B, C", string_util::join({"A", "B", "C"}, ", "));
 }

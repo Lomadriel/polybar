@@ -165,7 +165,7 @@ namespace string_util {
    * grapheme clusters.
    */
   string utf8_truncate(string&& value, size_t len) {
-    if (value.empty()) {
+    if (value.empty() || len == 0) {
       return "";
     }
 
@@ -175,17 +175,28 @@ namespace string_util {
     //
     // 0xc0 = 11000000
     // 0x80 = 10000000
-    auto it = value.begin();
-    auto end = value.end();
-    for (size_t i = 0; i < len; ++i) {
-      if (it == end)
-        break;
-      ++it;
-      it = std::find_if(it, end, [](char c) { return (c & 0xc0) != 0x80; });
-    }
-    value.erase(it, end);
+    auto it = value.cbegin();
+    auto end = value.cend();
 
-    return forward<string>(value);
+    for (size_t i = 0; i < len; ++i) {
+      if (it == end) {
+        break;
+      }
+
+      it = std::find_if(it, end, [](char c) { return (c & 0xc0) != 0x80; });
+      ++it;
+    }
+
+    auto prev = std::prev(it);
+    unsigned char prev_value = static_cast<unsigned char>(*prev);
+
+    if ((prev_value & 0x80U) == 0x80U && (prev_value & 0xc0U) == 0xc0U) {
+      value.erase(++it, end);
+    } else {
+      value.erase(it, end);
+    }
+
+    return move(value);
   }
 
   /**
@@ -275,6 +286,6 @@ namespace string_util {
   hash_type hash(const string& src) {
     return std::hash<string>()(src);
   }
-}
+}  // namespace string_util
 
 POLYBAR_NS_END
