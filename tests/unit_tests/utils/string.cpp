@@ -57,6 +57,19 @@ TEST(String, trim) {
   EXPECT_EQ("test", string_util::trim("xxtestxx", 'x'));
 }
 
+TEST(String, len) {
+  EXPECT_EQ(string_util::char_len(""), 0);
+  EXPECT_EQ(string_util::char_len("1234567890"), 10);
+  EXPECT_EQ(string_util::char_len("ûtf8-ĉĥâr"), 9);
+
+  EXPECT_EQ(string_util::char_len_without_tags("123%{B#ff00ff}456"), 6);
+  EXPECT_EQ(string_util::char_len_without_tags("âbĉ%{B#ff00ff}dêf"), 6);
+  EXPECT_EQ(string_util::char_len_without_tags("%{B#ff00ff}âbĉdêf"), 6);
+  EXPECT_EQ(string_util::char_len_without_tags("âbĉdêf%{B#ff00ff}"), 6);
+  EXPECT_EQ(string_util::char_len_without_tags("%{B#ff00ff}17%"), 3);
+  EXPECT_EQ(string_util::char_len_without_tags("%{A3:echo \"test\":}%artist% - %title%%{A}"), 18);
+}
+
 TEST(String, truncate) {
   {
     // Trivial cases
@@ -67,6 +80,24 @@ TEST(String, truncate) {
     EXPECT_EQ(string_util::utf8_truncate("polybar2", 7), "polybar");
     EXPECT_EQ(string_util::utf8_truncate("âbĉdêf", 1), "â");
     EXPECT_EQ(string_util::utf8_truncate("âbĉdêf", 2), "âb");
+  }
+
+  {
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("âbĉdêf", 0), "");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("", 30), "");
+
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("polybar2", 30), "polybar2");  // Should not erase
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("polybar2", 7), "polybar");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("âbĉdêf", 1), "â");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("âbĉdêf", 2), "âb");
+
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("polybar2%{A}", 7), "polybar%{A}");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("polybar2%{A}Next", 7), "polybar%{A}");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("â%{A}bĉdêf", 1), "â%{A}");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("%{A}âbĉdêf", 1), "%{A}â");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("%{A}â%{A}", 3), "%{A}â%{A}");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("%{A}â%{A}b", 3), "%{A}â%{A}b");
+    EXPECT_EQ(string_util::utf8_truncate_without_tags("%{A}â%{A}bcd", 3), "%{A}â%{A}bc");
   }
 }
 

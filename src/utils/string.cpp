@@ -159,6 +159,29 @@ namespace string_util {
   }
 
   /**
+   * Counts the number of codepoints in a utf8 encoded string.
+   * This version also excludes the tags.
+   */
+  size_t char_len_without_tags(const string& value) {
+    size_t size = 0;
+    bool escaping = false;
+
+    for (size_t i = 0; i < value.size(); ++i) {
+      if (!escaping && (value[i] & 0xc0) != 0x80) {
+        if (i + 1 < value.size() && value[i] == '%' && value[i + 1] == '{') {
+          escaping = true;
+        } else {
+          ++size;
+        }
+      } else if (escaping && value[i] == '}') {
+        escaping = false;
+      }
+    }
+
+    return size;
+  }
+
+  /**
    * Truncates a utf8 string at len number of codepoints. This isn't 100%
    * matching the user-perceived character count, but it should be close
    * enough and avoids having to pull in something like ICU to count actual
@@ -194,6 +217,68 @@ namespace string_util {
       value.erase(++it, end);
     } else {
       value.erase(it, end);
+    }
+
+    return move(value);
+  }
+
+  string utf8_truncate_without_tags(string&& value, size_t len) {
+    if (value.empty() || len == 0) {
+      return "";
+    }
+
+    // utf-8 bytes of the form 10xxxxxx are continuation bytes, so we
+    // simply jump forward to bytes not of that form and truncate starting
+    // at that byte if we've counted too many codepoints
+    //
+    // 0xc0 = 11000000
+    // 0x80 = 10000000
+    size_t last_string_pos = string::npos;
+
+    auto remove = [](string& str, string::const_iterator begin, string::const_iterator end) {
+      auto prev = std::prev(begin);
+      unsigned char prev_value = static_cast<unsigned char>(*prev);
+
+      if ((prev_value & 0x80U) == 0x80U && (prev_value & 0xc0U) == 0xc0U) {
+        return str.erase(++begin, end);
+      } else {
+        return str.erase(begin, end);
+      }};
+    {
+      size_t size = 0;
+      bool escaping = false;
+      for (size_t i = 0; i < value.size(); ++i) {
+        if (!escaping && (value[i] & 0xc0) != 0x80) {
+          if (i + 1 < value.size() && value[i] == '%' && value[i + 1] == '{') {
+            escaping = true;
+          } else {
+            ++size;
+            if (size == len) {
+              last_string_pos = i + 1;
+              break;
+            }
+          }
+        } else if (escaping && value[i] == '}') {
+          escaping = false;
+        }
+      }
+    }
+
+    if (last_string_pos != string::npos) {
+      size_t pos;
+      string::const_iterator it = std::next(value.cbegin(), last_string_pos);
+      if ((pos = value.find("%{", last_string_pos)) != string::npos) {
+        do {
+          it = remove(value, it, std::next(value.cbegin(), pos));
+          last_string_pos = value.find('}', last_string_pos) + 1;
+        } while ((pos = value.find("%{", last_string_pos)) != string::npos);
+
+        it = std::next(value.cbegin(), last_string_pos);
+      }
+
+      if (it != value.cend()) {
+        remove(value, it, value.cend());
+      }
     }
 
     return move(value);
