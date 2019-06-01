@@ -75,6 +75,28 @@ class pulseaudio {
 
     inline void wait_loop(pa_operation *op, pa_threaded_mainloop *loop);
 
+   private:
+    struct mainloop_locker {
+      explicit mainloop_locker(pa_threaded_mainloop* loop) : m_loop{loop} {
+        pa_threaded_mainloop_lock(m_loop);
+      }
+
+      ~mainloop_locker() {
+        if (m_loop) {
+          pa_threaded_mainloop_unlock(m_loop);
+        }
+      }
+
+      void unlock() {
+        pa_threaded_mainloop_unlock(m_loop);
+        m_loop = nullptr;
+      }
+
+     private:
+      pa_threaded_mainloop* m_loop;
+    };
+
+   private:
     const logger& m_log;
 
     /**
