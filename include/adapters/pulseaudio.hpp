@@ -43,7 +43,7 @@ class pulseaudio {
 
  public:
   explicit pulseaudio(const logger& logger, string&& sink_name, bool m_max_volume);
-  ~pulseaudio();
+  ~pulseaudio() = default;
 
   pulseaudio(const pulseaudio& o) = delete;
   pulseaudio& operator=(const pulseaudio& o) = delete;
@@ -62,7 +62,6 @@ class pulseaudio {
 
  private:
   void connect();
-  void reset();
 
   void update_volume();
   void throw_error(const string& msg);
@@ -73,24 +72,26 @@ class pulseaudio {
   static void sink_info_callback(pa_context* context, const pa_sink_info* info, int eol, void* userdata);
   static void context_state_callback(pa_context* context, void* userdata);
 
-  inline void wait_loop(pa_operation* op, pa_threaded_mainloop* loop);
+  void wait_loop(pa_operation* op);
 
  private:
+  struct mainloop_deleter {
+    void operator()(pa_threaded_mainloop* loop);
+  };
+
+  struct context_deleter {
+    void operator()(pa_context* context);
+  };
+
+  using mainloop_ptr = std::unique_ptr<pa_threaded_mainloop, mainloop_deleter>;
+  using context_ptr = std::unique_ptr<pa_context, context_deleter>;
+
   struct mainloop_locker {
-    explicit mainloop_locker(pa_threaded_mainloop* loop) : m_loop{loop} {
-      pa_threaded_mainloop_lock(m_loop);
-    }
+    explicit mainloop_locker(mainloop_ptr& loop) noexcept;
 
-    ~mainloop_locker() {
-      if (m_loop) {
-        pa_threaded_mainloop_unlock(m_loop);
-      }
-    }
+    ~mainloop_locker() noexcept;
 
-    void unlock() {
-      pa_threaded_mainloop_unlock(m_loop);
-      m_loop = nullptr;
-    }
+    void unlock() noexcept;
 
    private:
     pa_threaded_mainloop* m_loop;
@@ -106,13 +107,6 @@ class pulseaudio {
    */
   std::atomic_bool m_state_callback_signal{false};
 
-  /**
-   * Whether or not m_mainloop and m_context have been allocated
-   *
-   * This is basically a check whether or not reset can be called
-   */
-  bool m_init{false};
-
   // used for temporary callback results
   int success{0};
   pa_cvolume cv;
@@ -120,8 +114,8 @@ class pulseaudio {
   // default sink name
   static constexpr auto DEFAULT_SINK{"@DEFAULT_SINK@"};
 
-  pa_context* m_context{nullptr};
-  pa_threaded_mainloop* m_mainloop{nullptr};
+  mainloop_ptr m_mainloop{nullptr};
+  context_ptr m_context{nullptr};
 
   queue m_events;
 
