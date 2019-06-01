@@ -54,7 +54,7 @@ class pulseaudio {
   int process_events();
 
   int get_volume();
-  void set_volume(float percentage);
+  void set_volume(pa_volume_t percentage);
   void inc_volume(int delta_perc);
   void set_mute(bool mode);
   void toggle_mute();
@@ -65,7 +65,7 @@ class pulseaudio {
 
   void update_volume();
   void throw_error(const string& msg);
-  static void check_mute_callback(pa_context* context, const pa_sink_info* info, int eol, void* userdata);
+
   static void get_sink_volume_callback(pa_context* context, const pa_sink_info* info, int is_last, void* userdata);
   static void subscribe_callback(pa_context* context, pa_subscription_event_type_t t, uint32_t idx, void* userdata);
   static void simple_callback(pa_context* context, int success, void* userdata);

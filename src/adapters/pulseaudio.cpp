@@ -184,9 +184,9 @@ int pulseaudio::get_volume() {
 /**
  * Set volume to given percentage
  */
-void pulseaudio::set_volume(float percentage) {
+void pulseaudio::set_volume(pa_volume_t percentage) {
   mainloop_locker guard(m_mainloop);
-  pa_volume_t vol = math_util::percentage_to_value<pa_volume_t>(percentage, PA_VOLUME_MUTED, PA_VOLUME_NORM);
+  auto vol = math_util::percentage_to_value<pa_volume_t, pa_volume_t>(percentage, PA_VOLUME_MUTED, PA_VOLUME_NORM);
   pa_cvolume_scale(&cv, vol);
   pa_operation* op = pa_context_set_sink_volume_by_index(m_context.get(), m_index, &cv, simple_callback, this);
   if (!op) {
@@ -202,7 +202,7 @@ void pulseaudio::set_volume(float percentage) {
  */
 void pulseaudio::inc_volume(int delta_perc) {
   mainloop_locker guard(m_mainloop);
-  pa_volume_t vol = math_util::percentage_to_value<pa_volume_t>(abs(delta_perc), PA_VOLUME_NORM);
+  auto vol = math_util::percentage_to_value<pa_volume_t, pa_volume_t>(abs(delta_perc), PA_VOLUME_NORM);
   if (delta_perc > 0) {
     pa_volume_t current = pa_cvolume_max(&cv);
     if (current + vol <= m_max_volume) {
