@@ -4,10 +4,8 @@
 
 # Library: concurrentqueue {{{
 
-add_library(concurrentqueue INTERFACE)
-target_include_directories(concurrentqueue INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/concurrentqueue/include>)
-list(APPEND libs concurrentqueue)
+add_library(moodycamel INTERFACE)
+target_include_directories(moodycamel SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/concurrentqueue/include)
 
 # }}}
 # Library: xpp {{{
@@ -25,14 +23,16 @@ if(WITH_XKB)
 endif()
 
 add_subdirectory(xpp)
-list(APPEND libs xpp)
 
 # }}}
 # Library: i3ipcpp {{{
 
 if(ENABLE_I3)
   add_subdirectory(i3ipcpp)
-  list(APPEND libs ${I3IPCPP_LIBRARIES})
+  set_property(TARGET i3ipc++ PROPERTY POSITION_INDEPENDENT_CODE ON)
+  if(TARGET jsoncpp_lib_static)
+    set_property(TARGET jsoncpp_lib_static PROPERTY POSITION_INDEPENDENT_CODE ON)
+  endif()
 endif()
 
 # }}}

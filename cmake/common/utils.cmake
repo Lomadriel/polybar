@@ -70,33 +70,6 @@ function(queryfont output_variable fontname)
   endif()
 endfunction()
 
-# }}}
-# querylib {{{
-
-function(querylib flag type pkg out_library out_include_dirs)
-  if(${flag})
-    if(${type} STREQUAL "cmake")
-      find_package(${pkg} REQUIRED)
-      string(TOUPPER ${pkg} pkg_upper)
-      list(APPEND ${out_library} ${${pkg_upper}_LIBRARY})
-      list(APPEND ${out_include_dirs} ${${pkg_upper}_INCLUDE_DIR})
-    elseif(${type} STREQUAL "pkg-config")
-      find_package(PkgConfig REQUIRED)
-      pkg_check_modules(PKG_${flag} REQUIRED ${pkg})
-
-      # Set packet version so that it can be used in the summary
-      set(${flag}_VERSION ${PKG_${flag}_VERSION} PARENT_SCOPE)
-      list(APPEND ${out_library} ${PKG_${flag}_LIBRARIES})
-      list(APPEND ${out_include_dirs} ${PKG_${flag}_INCLUDE_DIRS})
-    else()
-      message(FATAL_ERROR "Invalid lookup type '${type}'")
-    endif()
-    set(${out_library} ${${out_library}} PARENT_SCOPE)
-    set(${out_include_dirs} ${${out_include_dirs}} PARENT_SCOPE)
-  endif()
-endfunction()
-
-# }}}
 # checklib {{{
 
 function(checklib flag type pkg)

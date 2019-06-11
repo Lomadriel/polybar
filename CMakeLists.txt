@@ -60,7 +60,7 @@ add_subdirectory(contrib/bash)
 add_subdirectory(contrib/zsh)
 add_subdirectory(include)
 add_subdirectory(lib)
-add_subdirectory(src bin)
+add_subdirectory(src)
 
 # We need to enable testing in the root folder so that 'ctest' and 'make test'
 # can be run in the build directory
