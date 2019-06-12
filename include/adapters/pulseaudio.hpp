@@ -59,6 +59,7 @@ class pulseaudio {
   void set_mute(bool mode);
   void toggle_mute();
   bool is_muted();
+  bool is_disconnected();
 
  private:
   void connect();
@@ -111,6 +112,8 @@ class pulseaudio {
   int success{0};
   pa_cvolume cv;
   bool muted{false};
+  std::atomic_bool m_disconnected{true};
+
   // default sink name
   static constexpr auto DEFAULT_SINK{"@DEFAULT_SINK@"};
 

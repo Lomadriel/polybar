@@ -1,8 +1,8 @@
 #pragma once
 
-#include "settings.hpp"
 #include "modules/meta/event_module.hpp"
 #include "modules/meta/input_handler.hpp"
+#include "settings.hpp"
 
 POLYBAR_NS
 
@@ -29,11 +29,13 @@ namespace modules {
    private:
     static constexpr auto FORMAT_VOLUME = "format-volume";
     static constexpr auto FORMAT_MUTED = "format-muted";
+    static constexpr auto FORMAT_DISCONNECTED = "format-disconnected";
 
     static constexpr auto TAG_RAMP_VOLUME = "<ramp-volume>";
     static constexpr auto TAG_BAR_VOLUME = "<bar-volume>";
     static constexpr auto TAG_LABEL_VOLUME = "<label-volume>";
     static constexpr auto TAG_LABEL_MUTED = "<label-muted>";
+    static constexpr auto TAG_LABEL_DISCONNECTED = "<label-disconnected>";
 
     static constexpr auto EVENT_PREFIX = "pa_vol";
     static constexpr auto EVENT_VOLUME_UP = "pa_volup";
@@ -44,13 +46,15 @@ namespace modules {
     ramp_t m_ramp_volume;
     label_t m_label_volume;
     label_t m_label_muted;
+    label_t m_label_disconnected;
 
     pulseaudio_t m_pulseaudio;
 
     int m_interval{5};
     atomic<bool> m_muted{false};
+    std::atomic_bool m_disconnected{true};
     atomic<int> m_volume{0};
   };
-}
+}  // namespace modules
 
 POLYBAR_NS_END

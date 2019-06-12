@@ -14,7 +14,8 @@ POLYBAR_NS
 namespace modules {
   template class module<pulseaudio_module>;
 
-  pulseaudio_module::pulseaudio_module(const bar_settings& bar, string name_) : event_module<pulseaudio_module>(bar, move(name_)) {
+  pulseaudio_module::pulseaudio_module(const bar_settings& bar, string name_)
+      : event_module<pulseaudio_module>(bar, move(name_)) {
     // Load configuration values
     m_interval = m_conf.get(name(), "interval", m_interval);
 
@@ -30,6 +31,7 @@ namespace modules {
     // Add formats and elements
     m_formatter->add(FORMAT_VOLUME, TAG_LABEL_VOLUME, {TAG_RAMP_VOLUME, TAG_LABEL_VOLUME, TAG_BAR_VOLUME});
     m_formatter->add(FORMAT_MUTED, TAG_LABEL_MUTED, {TAG_RAMP_VOLUME, TAG_LABEL_MUTED, TAG_BAR_VOLUME});
+    m_formatter->add(FORMAT_DISCONNECTED, TAG_LABEL_DISCONNECTED, {TAG_LABEL_DISCONNECTED});
 
     if (m_formatter->has(TAG_BAR_VOLUME)) {
       m_bar_volume = load_progressbar(m_bar, m_conf, name(), TAG_BAR_VOLUME);
@@ -43,11 +45,12 @@ namespace modules {
     if (m_formatter->has(TAG_RAMP_VOLUME)) {
       m_ramp_volume = load_ramp(m_conf, name(), TAG_RAMP_VOLUME);
     }
+    if (m_formatter->has(TAG_LABEL_DISCONNECTED, FORMAT_DISCONNECTED)) {
+      m_label_disconnected = load_optional_label(m_conf, name(), TAG_LABEL_DISCONNECTED, "Disconnected");
+    }
   }
 
-  void pulseaudio_module::teardown() {
-    m_pulseaudio.reset();
-  }
+  void pulseaudio_module::teardown() {}
 
   bool pulseaudio_module::has_event() {
     // Poll for mixer and control events
@@ -69,29 +72,38 @@ namespace modules {
     m_muted = false;
 
     try {
-      if (m_pulseaudio) {
+      if (m_pulseaudio && !m_pulseaudio->is_disconnected()) {
         m_volume = m_volume * m_pulseaudio->get_volume() / 100.0f;
         m_muted = m_muted || m_pulseaudio->is_muted();
+        m_disconnected = false;
+      } else {
+        m_disconnected = true;
       }
     } catch (const pulseaudio_error& err) {
       m_log.err("%s: Failed to query pulseaudio sink (%s)", name(), err.what());
     }
 
-    // Replace label tokens
-    if (m_label_volume) {
-      m_label_volume->reset_tokens();
-      m_label_volume->replace_token("%percentage%", to_string(m_volume));
-    }
+    if (!m_disconnected) {
+      // Replace label tokens
+      if (m_label_volume) {
+        m_label_volume->reset_tokens();
+        m_label_volume->replace_token("%percentage%", to_string(m_volume));
+      }
 
-    if (m_label_muted) {
-      m_label_muted->reset_tokens();
-      m_label_muted->replace_token("%percentage%", to_string(m_volume));
+      if (m_label_muted) {
+        m_label_muted->reset_tokens();
+        m_label_muted->replace_token("%percentage%", to_string(m_volume));
+      }
     }
 
     return true;
   }
 
   string pulseaudio_module::get_format() const {
+    if (m_disconnected) {
+      return FORMAT_DISCONNECTED;
+    }
+
     return m_muted ? FORMAT_MUTED : FORMAT_VOLUME;
   }
 
@@ -101,7 +113,7 @@ namespace modules {
     // with the cmd handlers
     string output{module::get_output()};
 
-    if (m_handle_events) {
+    if (m_handle_events && !m_disconnected) {
       m_builder->cmd(mousebtn::LEFT, EVENT_TOGGLE_MUTE);
       m_builder->cmd(mousebtn::SCROLL_UP, EVENT_VOLUME_UP);
       m_builder->cmd(mousebtn::SCROLL_DOWN, EVENT_VOLUME_DOWN);
@@ -121,6 +133,8 @@ namespace modules {
       builder->node(m_label_volume);
     } else if (tag == TAG_LABEL_MUTED) {
       builder->node(m_label_muted);
+    } else if (tag == TAG_LABEL_DISCONNECTED) {
+      builder->node(m_label_disconnected);
     } else {
       return false;
     }
@@ -153,6 +167,6 @@ namespace modules {
 
     return true;
   }
-}
+}  // namespace modules
 
 POLYBAR_NS_END

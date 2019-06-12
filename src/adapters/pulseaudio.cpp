@@ -152,9 +152,14 @@ int pulseaudio::process_events() {
         m_log.warn("Reconnecting to PulseAudio");
 
         guard.unlock();
-        connect();
-        guard = mainloop_locker{m_mainloop};
-        break;
+
+        std::thread([this]() {
+          using namespace std::chrono_literals;
+          std::this_thread::sleep_for(5s);
+          connect();
+        }).detach();
+
+        return ret - m_events.size();
 
       case evtype::NOP:
       default:
@@ -340,11 +345,17 @@ void pulseaudio::context_state_callback(pa_context* context, void* userdata) {
   pulseaudio* This = static_cast<pulseaudio*>(userdata);
   switch (pa_context_get_state(context)) {
     case PA_CONTEXT_READY:
+      This->m_disconnected = false;
+      This->m_state_callback_signal = true;
+      pa_threaded_mainloop_signal(This->m_mainloop.get(), 0);
+      break;
     case PA_CONTEXT_TERMINATED:
+      This->m_disconnected = true;
       This->m_state_callback_signal = true;
       pa_threaded_mainloop_signal(This->m_mainloop.get(), 0);
       break;
     case PA_CONTEXT_FAILED:
+      This->m_disconnected = true;
       This->m_state_callback_signal = true;
       pa_threaded_mainloop_signal(This->m_mainloop.get(), 0);
       This->m_events.emplace(evtype::RECONNECT);
@@ -354,6 +365,7 @@ void pulseaudio::context_state_callback(pa_context* context, void* userdata) {
     case PA_CONTEXT_CONNECTING:
     case PA_CONTEXT_AUTHORIZING:
     case PA_CONTEXT_SETTING_NAME:
+      This->m_disconnected = true;
       break;
   }
 }
@@ -363,6 +375,10 @@ void pulseaudio::wait_loop(pa_operation* op) {
     pa_threaded_mainloop_wait(m_mainloop.get());
   }
   pa_operation_unref(op);
+}
+
+bool pulseaudio::is_disconnected() {
+  return m_disconnected;
 }
 
 pulseaudio::mainloop_locker::mainloop_locker(polybar::pulseaudio::mainloop_ptr& loop) noexcept : m_loop{loop.get()} {
