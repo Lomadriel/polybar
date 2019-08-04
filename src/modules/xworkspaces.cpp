@@ -144,7 +144,9 @@ namespace modules {
     while (it_old != clients.end() || it_new != m_clientlist.end()) {
       if (it_old != clients.end()) {
         auto desktop = ewmh_util::get_desktop_from_window(*it_old);
-        m_desktop_occupied[desktop] = true;
+        if (desktop != 0xffffffff) {
+          m_desktop_occupied[desktop] = true;
+        }
       }
       if (it_new == m_clientlist.end() || (it_old != clients.end() && *it_old < *it_new)) {
         // listen for wm_hint (urgency) changes
