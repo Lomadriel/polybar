@@ -17,7 +17,7 @@ namespace {
   inline bool operator==(const position& a, const position& b) {
     return a.x + a.y == b.x + b.y;
   }
-}
+}  // namespace
 
 namespace modules {
   template class module<xworkspaces_module>;
@@ -181,16 +181,17 @@ namespace modules {
       }
     }();
 
-    bounds.erase(std::unique(bounds.begin(), bounds.end(), [](auto& a, auto& b) { return a == b; }), bounds.end());
+    bounds.erase(
+        std::unique(bounds.begin(), bounds.end(), [](const auto& a, const auto& b) { return a == b; }), bounds.end());
 
-    unsigned int step = bounds.size() ? m_desktop_names.size() / bounds.size() : 1;
+    unsigned int step = !bounds.empty() ? m_desktop_names.size() / bounds.size() : 1;
 
     unsigned int offset = 0;
-    for (unsigned int i = 0; i < bounds.size(); i++) {
-      if (!m_pinworkspaces || m_bar.monitor->match(bounds[i])) {
+    for (const auto& bound : bounds) {
+      if (!m_pinworkspaces || m_bar.monitor->match(bound)) {
         auto viewport = make_unique<struct viewport>();
         viewport->state = viewport_state::UNFOCUSED;
-        viewport->pos = bounds[i];
+        viewport->pos = bound;
 
         for (auto&& m : m_monitors) {
           if (m->match(viewport->pos)) {
@@ -218,7 +219,7 @@ namespace modules {
       offset += step;
     }
     m_desktop_occupied.resize(m_desktop_names.size(), false);
- }
+  }
 
   /**
    * Update active state of current desktops
@@ -226,7 +227,6 @@ namespace modules {
   void xworkspaces_module::rebuild_desktop_states() {
     for (auto&& v : m_viewports) {
       for (auto&& d : v->desktops) {
-
         if (m_desktop_names[d->index] == m_current_desktop_name) {
           d->state = desktop_state::ACTIVE;
         } else if (m_desktop_occupied[d->index]) {
@@ -244,14 +244,13 @@ namespace modules {
     }
   }
 
-  vector<string> xworkspaces_module::get_desktop_names(){
+  vector<string> xworkspaces_module::get_desktop_names() {
     vector<string> names = ewmh_util::get_desktop_names();
     unsigned int desktops_number = ewmh_util::get_number_of_desktops();
-    if(desktops_number == names.size()) {
+    if (desktops_number == names.size()) {
       return names;
-    }
-    else if(desktops_number < names.size()) {
-      names.erase(names.begin()+desktops_number, names.end());
+    } else if (desktops_number < names.size()) {
+      names.erase(names.begin() + desktops_number, names.end());
       return names;
     }
     for (unsigned int i = names.size(); i < desktops_number + 1; i++) {
@@ -265,7 +264,7 @@ namespace modules {
    */
   void xworkspaces_module::set_desktop_urgent(xcb_window_t window) {
     auto desk = ewmh_util::get_desktop_from_window(window);
-    if(desk == m_current_desktop)
+    if (desk == m_current_desktop)
       // ignore if current desktop is urgent
       return;
     for (auto&& v : m_viewports) {
@@ -391,6 +390,6 @@ namespace modules {
 
     return true;
   }
-}
+}  // namespace modules
 
 POLYBAR_NS_END
