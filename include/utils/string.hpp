@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <sstream>
 
 #include "common.hpp"
@@ -76,9 +77,37 @@ namespace string_util {
   string strip(const string& haystack, char needle);
   string strip_trailing_newline(const string& haystack);
 
-  string ltrim(string value, function<bool(char)> pred);
-  string rtrim(string value, function<bool(char)> pred);
-  string trim(string value, function<bool(char)> pred);
+  /**
+   * Trims all characters that match pred from the left
+   * \tparam Pred a functor that take a char as parameter and should return true if the char should be removed.
+   */
+  template <typename T, typename = std::enable_if_t<!std::is_same<std::decay_t<T>, char>::value>>
+  string ltrim(string value, T&& pred) {
+    value.erase(value.begin(),
+        std::find_if(value.begin(), value.end(), [pred = std::forward<T>(pred)](auto c) { return !pred(c); }));
+    return value;
+  }
+
+  /**
+   * Trims all characters that match pred from the right
+   * \tparam Pred a functor that take a char as parameter and should return true if the char should be removed.
+   */
+  template <typename T, typename = std::enable_if_t<!std::is_same<std::decay_t<T>, char>::value>>
+  string rtrim(string value, T&& pred) {
+    value.erase(
+        std::find_if(value.rbegin(), value.rend(), [pred = std::forward<T>(pred)](auto c) { return !pred(c); }).base(),
+        value.end());
+    return value;
+  }
+
+  /**
+   * Trims all characters that match pred from both sides
+   * \tparam Pred a functor that take a char as parameter and should return true if the char should be removed.
+   */
+  template <typename T, typename = std::enable_if_t<!std::is_same<std::decay_t<T>, char>::value>>
+  string trim(string value, T&& pred) {
+    return ltrim(rtrim(move(value), pred), pred);
+  }
 
   string ltrim(string&& value, const char& needle = ' ');
   string rtrim(string&& value, const char& needle = ' ');
